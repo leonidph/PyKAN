@@ -29,8 +29,6 @@ DataSrc::DataSrc( int64_t full_seq_len, int64_t  seq_len)
         inputs_.push_back(input_tensor);
         targets_.push_back(target_tensor);
 
-        //std::cout <<input_tensor.sizes()<<std::endl;
-        //std::cout <<target_tensor.sizes()<<std::endl;
 
         ++startPoint;
     }
