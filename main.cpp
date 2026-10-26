@@ -9,6 +9,7 @@
 #include "kan.h"
 #include "rnn.h"
 #include "simpleFunc.h"
+#include "kan4.h"
 
 #include "chebkan.hpp"
 
@@ -49,16 +50,7 @@ float Run(size_t layers,size_t in,size_t out,size_t internalSize=16,size_t knots
 float Run2(torch::Tensor& X,torch::Tensor& Y,size_t layers,size_t in,size_t out,size_t internalSize=16,size_t knots=10,size_t maxEpoch=2000)
 {
     torch::Tensor loss ;
-    // Best result on 3,32,15
 
-    /*  auto X = torch::linspace(-2,2,1000).view({-1,2});
-    auto col1 = X.select(1, 0).unsqueeze(1);
-    auto col2 = X.select(1, 1).unsqueeze(1);
-
-    auto Y1 = torch::sin(3*col1) + 0.3*torch::pow(col1,2) + 0.1*torch::tan(col1);
-    auto Y2 = torch::sin(3*col2) + 0.3*torch::pow(col2,2) + 0.1*torch::tan(col2);
-    auto Y = Y1+Y2;
-*/
     auto model = KANNet(layers,in,out,internalSize,knots);
     torch::optim::Adam opt(model->parameters(), 1e-3);
 
@@ -124,26 +116,19 @@ void mainKAN(TaskExecutor &executor)
     std::set<uint64_t> tasksID;
 
     // KAN data set
-    auto X = torch::linspace(-2,3,3000).view({-1,3});
-    auto col1 = X.select(1, 0).unsqueeze(1);
-    auto col2 = X.select(1, 1).unsqueeze(1);
-    auto col3 = X.select(1, 2).unsqueeze(1);
-
-    auto Y1 = torch::sin(3*col1) + 0.3*torch::pow(col1,2) + 0.1*torch::tan(col1);
-    auto Y2 = torch::sin(3*col2) + 0.3*torch::pow(col2,2) + 0.1*torch::tan(col2);
-    auto Y3 = torch::cos(3*col3) + 0.3*torch::pow(col3,2) ;
-    auto Y = Y1+Y2 + Y3;
+    auto X = torch::linspace(-2,3,1000).view({-1,1});
+    auto Y = torch::sin(3*X);
 
     //      KAN
-    std::vector<size_t> layers={3,4,5,6};
-    std::vector<size_t> internalsizes={64};//{8,16,32,64,128,256};
-    std::vector<size_t> knots={5,10,20,40,80};
+    std::vector<size_t> layers={3};
+    std::vector<size_t> internalsizes={8};//{8,16,32,64,128,256};
+    std::vector<size_t> knots={10};
 
     for(auto ls:layers)
         for(auto is:internalsizes)
             for(auto kn:knots)
             {
-                prm["in"]=3;
+                prm["in"]=1;
                 prm["out"]=1;
                 prm["layers"]=ls;
                 prm["intSize"] =is;
@@ -182,6 +167,8 @@ void mainKAN(TaskExecutor &executor)
     }
 
 }
+\
+
 
 
 nlohmann::json funcChebyshev(nlohmann::json params)
@@ -195,7 +182,7 @@ nlohmann::json funcChebyshev(nlohmann::json params)
     auto loader=torch::data::make_data_loader(std::move(dataset),torch::data::DataLoaderOptions().batch_size(64));
     float expLoss = 1e-5;
 
-    ChebKAN model(2,params["intSize"].get<int>(),1,10,params["layers"].get<int>());
+    ChebKAN model(params["input_size"].get<int>(),params["intSize"].get<int>(),1,10,params["layers"].get<int>());
     model->to(device);
     torch::optim::AdamW opt(model->parameters(),torch::optim::AdamWOptions(1e-3));
     float lastLoss;
@@ -214,12 +201,13 @@ nlohmann::json funcChebyshev(nlohmann::json params)
         {
             break;
         }
-
     }
+    model->printWB();
     //std::cout<<"Done after "<<e<<" epochs, with loss - "<<lastLoss<<std::endl;
     std::string explanation=
             "layers-" + std::to_string(params["layers"].get<int>() )+
             "  InternalSize - " + std::to_string(params["intSize"].get<int>());
+
 
     params["explanation"] =explanation;
     params["loss_result"] =lastLoss;
@@ -227,39 +215,74 @@ nlohmann::json funcChebyshev(nlohmann::json params)
 
 }
 
-void mainChebyshevKAN(TaskExecutor &executor)
+void mainChebyshevKAN(TaskExecutor &executor,int inputSize)
 {
     std::set<uint64_t> tasksID;
 
     torch::manual_seed(42);
+    torch::Tensor train_x ;
+    torch::Tensor train_y ;
+    torch::Tensor val_x;
+    torch::Tensor val_y;
+
     torch::Device device(torch::cuda::is_available()?torch::kCUDA:torch::kCPU);
-    auto x = torch::linspace(-2,2,6000).view({-1,2});
-    auto col1 = x.select(1, 0).unsqueeze(1);
-    auto col2 = x.select(1, 1).unsqueeze(1);
+    if(1 == inputSize)
+    {
+        auto x = torch::linspace(-2,2,1000).view({-1,1});
+        auto y = torch::sin(3*x);
+
+        train_x   =x.narrow(0,0,1000);
+        train_y   =y.narrow(0,0,1000);
+
+        std::cout << x.sizes()<<std::endl;
+        val_x     =x.narrow(0,800,200);
+        val_y     =y.narrow(0,800,200);
+    }
+    else    if(2 == inputSize)
+    {
+        auto x = torch::linspace(-2,2,8000).view({-1,2});
+
+        auto col1 = x.select(1, 0).unsqueeze(1);
+        auto col2 = x.select(1, 1).unsqueeze(1);
 
 
-    auto Y1 = torch::sin(3*col1) + 0.3*torch::pow(col1,2);
-    auto Y2 = torch::sin(3*col2) + 0.3*torch::pow(col2,2);
+        auto Y1 = torch::sin(3*col1) + 0.3*torch::pow(col1,2);
+        auto Y2 = torch::sin(3*col2) + 0.3*torch::pow(col2,2);
 
-    auto y = (Y1 + Y2 ) / 2.0;
+        auto y = (Y1 + Y2 ) / 2.0;
 
-    auto train_x=x.narrow(0,0,2000);
-    auto train_y=y.narrow(0,0,2000);
-    auto val_x=x.narrow(0,2000,1000);
-    auto val_y=y.narrow(0,2000,1000);
+        train_x   =x.narrow(0,0,2000);
+        train_y   =y.narrow(0,0,2000);
+        val_x     =x.narrow(0,2000,2000);
+        val_y     =y.narrow(0,2000,2000);
+    }
+    else if(4== inputSize)
+    {
+        auto x1 = torch::rand({10000,1}) * 4 - 2;
+        auto x2 = torch::rand({10000,1}) * 4 - 2;
+        auto x3 = torch::rand({10000,1}) * 4 - 2;
+        auto x4 = torch::rand({10000,1}) * 4 - 2;
 
+        auto X = torch::cat({x1,x2,x3,x4},1);
+
+        auto Y =
+                torch::sin(3*x1)  + torch::cos(2*x2) + 0.3*torch::sin(x3*x4)
+                + 0.2*torch::pow(x1,2) - 0.1*torch::pow(x2,2) + 0.05*x3*x4;
+
+    }
     nlohmann::json params;
 
-    std::vector<size_t> layers={5};
-    std::vector<size_t> internalsizes={32,64,128,256,512};
+    std::vector<size_t> layers={3};
+    std::vector<size_t> internalsizes={20};
     for(auto ls:layers)
         for(auto is:internalsizes)
         {
+            params["input_size"] = inputSize;
             params["train_x"] = train_x;
             params["train_y"] = train_y;
             params["intSize"] = is;
             params["layers"] =ls;
-            params["maxEpoch"] =10000;
+            params["maxEpoch"] =20000;
             tasksID.insert(executor.PushTask("Chebyshev",params));
         }
 
@@ -360,15 +383,18 @@ void mainSimpleNet(TaskExecutor &executor)
 
 int main()
 {
-    TaskExecutor executor(4);
+    std::cout << "LibTorch Version: " << TORCH_VERSION << std::endl;
+
+    TaskExecutor executor(2);
     executor.AddFunctionalty("KAN",funcKAN);
+    executor.AddFunctionalty("KAN4",funcKAN4);
     executor.AddFunctionalty("RNN",funcRNN);
     executor.AddFunctionalty("Chebyshev",funcChebyshev);
-
     executor.AddFunctionalty("Simple",SimpleFunc);
+    //mainKan4(executor);
+    //mainChebyshevKAN(executor,1);
 
-    mainChebyshevKAN(executor);
-    //mainKAN(executor);
+    mainKAN(executor);
     //mainSimpleNet(executor);
     //mainRNN(executor);
     return 0;

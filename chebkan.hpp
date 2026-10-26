@@ -26,6 +26,7 @@ class ChebyshevLayerImpl: public torch::nn::Module
 public:
     ChebyshevLayerImpl(int64_t,int64_t,int64_t);
     torch::Tensor forward(const torch::Tensor&);
+    void printWB();
 private:
     torch::Tensor compute_basis(const torch::Tensor&);
     int64_t in_features_,out_features_,degree_;
@@ -39,6 +40,7 @@ class ChebKANImpl: public torch::nn::Module
 public:
     ChebKANImpl(int64_t inputSize,int64_t hiddenSize,int64_t outputSize,int64_t deg,int64_t allLayers);
     torch::Tensor forward(torch::Tensor);
+    void printWB();
 private:
     torch::nn::ModuleList layers_;
 };

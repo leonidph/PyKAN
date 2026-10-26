@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.22 FATAL_ERROR)
 project(kanTorch)
 
 
@@ -28,7 +28,8 @@ add_executable(kanTorch
                 rnn.h rnn.cpp
                 simpleNet.h simpleNet.cpp
                 simpleFunc.h simpleFunc.cpp
-                chebkan.cpp chebkan.hpp)
+                chebkan.cpp chebkan.hpp
+                kan4.h kan4.cpp)
 target_link_libraries(${PROJECT_NAME}  "${TORCH_LIBRARIES}"  ${OpenCV_LIBS} )
 
 

@@ -23,6 +23,14 @@ torch::Tensor ChebyshevLayerImpl::compute_basis(const torch::Tensor& x)
     return torch::stack(b,-1);}
 
 
+void ChebyshevLayerImpl::printWB()
+{
+    std::cout<<"   ====  weights ===="<<std::endl;
+    std::cout << weights_ <<std::endl;
+    std::cout<<std::endl<<std::endl<<"   ====  Bias ===="<<std::endl;
+    std::cout << bias_<<std::endl;
+}
+
 torch::Tensor ChebyshevLayerImpl::forward(const torch::Tensor& x)
 {
     auto basis=compute_basis(x);
@@ -31,7 +39,6 @@ torch::Tensor ChebyshevLayerImpl::forward(const torch::Tensor& x)
     y+=bias_;
     return y;
 }
-
 
 ChebKANImpl::ChebKANImpl(int64_t inputSize,int64_t hiddenSize,int64_t outputSize,int64_t deg,int64_t allLayers)
 {
@@ -60,4 +67,8 @@ torch::Tensor ChebKANImpl::forward(torch::Tensor x)
     }
     auto* out=layers_[last]->as<ChebyshevLayerImpl>();
     return out->forward(x);
+}
+void ChebKANImpl::printWB()
+{
+    layers_[1]->as<ChebyshevLayerImpl>()->printWB();
 }

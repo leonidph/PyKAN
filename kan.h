@@ -17,6 +17,14 @@ public:
     void refine_grid(const torch::Tensor& samples);
     torch::Tensor bspline_basis(const torch::Tensor& x,int degree);
     torch::Tensor forward(torch::Tensor x);
+    void printWB()
+    {
+        std::cout << " === base_weight_ === "<<std::endl;
+        std::cout << base_weight_<<std::endl;
+
+        std::cout << " === spline_weight_ === "<<std::endl;
+        std::cout << spline_weight_<<std::endl;
+    }
 };
 
 TORCH_MODULE(KANLayer);
@@ -52,7 +60,10 @@ public:
         layerO = register_module(name,KANLayer(internalSize,out,knots));
         layers_.push_back(layerO);
     }
-
+    void PrintWB()
+    {
+        layers_[1]->printWB();
+    }
     torch::Tensor forward(torch::Tensor x)
     {
         for(size_t i=0;i<layers_.size()-1;i++)
